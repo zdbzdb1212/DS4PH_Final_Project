@@ -1,0 +1,178 @@
+---
+title: "Predictive Growth for Cryptocurrencies"
+author: "Alexander Bates"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    social: menu
+    theme: flatly
+runtime: shiny
+---
+
+```{r, include = FALSE}
+# Loading R-packages
+library(tidyverse)
+library(shiny)
+library(ggplot2)
+library(plotly)
+library(dygraphs)
+library(prophet)
+```
+
+```{r}
+# Reading in the data
+btc_dat <- read.csv("coin_Bitcoin.csv")
+eth_dat <- read.csv("coin_Ethereum.csv")
+cdn_dat <- read.csv("coin_Cardano.csv")
+dot_dat <- read.csv("coin_Polkadot.csv")
+tth_dat <- read.csv("coin_Tether.csv")
+mon_dat <- read.csv("coin_Monero.csv")
+doge_dat <- read.csv("coin_Dogecoin.csv")
+eos_dat <- read.csv("coin_EOS.csv")
+lite_dat <- read.csv("coin_Litecoin.csv")
+uni_dat <- read.csv("coin_Uniswap.csv")
+xrp_dat <- read.csv("coin_XRP.csv")
+link_dat <- read.csv("coin_ChainLink.csv")
+
+# Manipulating data sets for prophet forecast model
+```
+
+```{r}
+# Merging, reordering, and cleaning the data
+full_dat <- bind_rows(btc_dat, eth_dat, xrp_dat, cdn_dat, dot_dat, tth_dat, mon_dat, doge_dat, eos_dat, lite_dat, uni_dat, link_dat) %>% 
+    arrange(desc(Date)) %>%
+    separate(Date, into = c('Date','Time'), sep = ' ') %>% 
+    rename(Cryptocurrency = Name) %>% 
+    mutate(ds = as.Date(Date)) %>% 
+    mutate(markcap = log10(Marketcap)) %>% 
+    rowwise() %>% mutate(y = mean(c(High, Low)))
+```
+
+
+```{r}
+# Different method
+  dat_func <- function(data){
+    data %>% 
+    separate(Date, into = c('Date','Time'), sep = ' ') %>% 
+    mutate(ds = as.Date(Date)) %>% 
+    rowwise() %>% 
+    mutate(y = mean(c(High, Low))) %>%
+    select(ds, y)
+}
+
+btc_dat <- dat_func(btc_dat)
+eth_dat <- dat_func(eth_dat)
+cdn_dat <- dat_func(cdn_dat)
+dot_dat <- dat_func(dot_dat)
+tth_dat <- dat_func(tth_dat)
+mon_dat <- dat_func(mon_dat)
+doge_dat <- dat_func(doge_dat)
+eos_dat <- dat_func(eos_dat)
+lite_dat <- dat_func(lite_dat)
+uni_dat <- dat_func(uni_dat)
+xrp_dat <- dat_func(xrp_dat)
+link_dat <- dat_func(link_dat)
+```
+
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput(inputId = 'ph_plot',
+            label = 'Select Cryptocurrency to Forecast',
+            choices = c('Bitcoin',
+                        'Ethereum', 
+                        'Ripple',
+                        'Tether',
+                        'Dogecoin',
+                        'Cardano', 
+                        'Polkadot',
+                        'Monero',
+                        'Uniswap',
+                        'Litecoin', 
+                        'EOS', 
+                        'ChainLink'),
+            selected = 'Ethereum')
+
+# dateRangeInput
+
+# selectInput prediction_model
+```
+
+Row 
+--------------------------------------------------------------------------
+
+```{r}
+renderDygraph({
+
+# Selecting Crypto currency type
+    if (input$ph_plot == "Bitcoin" ){
+        dat <- btc_dat
+    } else if (input$ph_plot == "Ethereum"){
+        dat <- eth_dat
+    } else if (input$ph_plot == "Ripple"){
+        dat <- xrp_dat
+    } else if (input$ph_plot == "Tether"){
+        dat <- tth_dat
+    } else if (input$ph_plot == "Cardano"){
+        dat <- cdn_dat
+    } else if (input$ph_plot == 'Dogecoin'){
+        dat <- doge_dat
+    } else if (input$ph_plot == "Polkadot"){
+        dat <- dot_dat
+    } else if (input$ph_plot == "Monero"){
+        dat <- mon_dat
+    } else if (input$ph_plot == "Uniswap"){
+        dat <- uni_dat
+    } else if (input$ph_plot == "Litecoin"){
+        dat <- lite_dat
+    } else if (input$ph_plot == "EOS"){
+        dat <- eos_dat
+    } else {
+        dat <- link_dat
+    }
+
+# Prophet function
+model_x <- prophet(dat)
+future_x <- make_future_dataframe(model_x, periods = 365)
+tail(future_x)
+
+forecast_x <- predict(model_x, future_x)
+tail(forecast_x[c('ds', 'yhat', 'yhat_lower', 'yhat_upper')])
+
+# Plotting
+dyplot.prophet(model_x, forecast_x)
+})
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Comparison of Cryptocurrencies by Price per Coin
+```{r}
+smpl <- full_dat %>% select(Cryptocurrency, ds, y)
+
+smpl_plot <- ggplot(smpl, aes(ds, y, col = Cryptocurrency)) + 
+    geom_line() + 
+    labs(x="Year", y = "Price per Coin (USD)", title = "Comparison of Coin Price  by Year") +
+    theme_bw() 
+ggplotly(smpl_plot)
+
+```
+
+### Comparison of Cryptocurrencies by Marketcap
+
+```{r}
+smpl <- full_dat %>% select(Cryptocurrency, ds, markcap)
+
+smpl_plot <- ggplot(smpl, aes(ds, markcap, col = Cryptocurrency)) + 
+    geom_line() + 
+    labs(x="Year", y = "Market Cap (in billions USD)", title = "Market Cap of Cryptos by Year") +
+    theme_bw() 
+ggplotly(smpl_plot)
+```
+
+
+
