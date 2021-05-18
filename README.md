@@ -3,6 +3,8 @@ Final project for Data Science for PH and BME
 
 https://zdbzdb1212.shinyapps.io/Predictive_Growth_Crypto/
 
+Presentation: https://drive.google.com/file/d/1yrVY3t_atphWl65BQ1VVkI5SmLejROdQ/view?usp=sharing
+
 
 ## General Description
 
